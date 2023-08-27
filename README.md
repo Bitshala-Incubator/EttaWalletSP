@@ -83,7 +83,7 @@ If you would like to contribute code, here a few guidelines:
 
 ### Branches
 
-`silent-payment` - The branch to submit pull requests against.
+`silentpayment` - The branch to submit pull requests against.
 
 ## License
 
