@@ -24,7 +24,6 @@ import {
 } from '../utils/lightning/helpers';
 import { navigate } from '../navigation/NavigationService';
 import { Screens } from '../navigation/Screens';
-import useSendBottomSheet from '../components/useSendBottomSheet';
 import useSettingsBottomSheet from '../components/useSettingsBottomSheet';
 import AmountDisplay from '../components/amount/AmountDisplay';
 import { cueInformativeHaptic } from '../utils/accessibility/haptics';
@@ -38,7 +37,6 @@ const WalletHomeScreen = () => {
   const balance = useStoreState((state) => state.lightning.claimableBalance);
   const paymentsStore = useStoreState((state) => state.lightning.payments);
 
-  const { openOptionsSheet, sendOptionsBottomSheet } = useSendBottomSheet({});
   const { PickContactBottomSheet } = useContactsBottomSheet({});
 
   const { openSettingsSheet, settingsBottomSheet } = useSettingsBottomSheet();
@@ -143,6 +141,11 @@ const WalletHomeScreen = () => {
     navigate(Screens.ActivityScreen);
   };
 
+  const onPressSend = () => {
+    cueInformativeHaptic();
+    navigate(Screens.EnterAnythingScreen);
+  };
+
   const onPressRequest = () => {
     cueInformativeHaptic();
     // check if open channels exist, if yes, proceed,
@@ -177,8 +180,7 @@ const WalletHomeScreen = () => {
         contentContainerStyle={styles.balanceSection}
         showsVerticalScrollIndicator={false}
       />
-      <HomeActionsBar onPressSend={openOptionsSheet} onPressRequest={onPressRequest} />
-      {sendOptionsBottomSheet}
+      <HomeActionsBar onPressSend={onPressSend} onPressRequest={onPressRequest} />
       {settingsBottomSheet}
       {PickContactBottomSheet}
     </SafeAreaView>

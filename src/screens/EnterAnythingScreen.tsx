@@ -16,7 +16,7 @@ import { navigateHome } from '../navigation/NavigationService';
 const EnterAnythingScreen = ({ navigation }) => {
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerTitle: () => <HeaderTitleWithSubtitle title="Enter anything" />,
+      headerTitle: () => <HeaderTitleWithSubtitle title="Enter SP Address" />,
       headerRight: () => <CancelButton onCancel={() => navigateHome()} />,
     });
   }, [navigation]);
@@ -69,7 +69,7 @@ const EnterAnythingScreen = ({ navigation }) => {
         keyboardShouldPersistTaps={'always'}
       >
         <InputAnything
-          label={'Enter BOLT11 invoice or Lightning address'}
+          label={'Enter a Silent Payment address'}
           status={inputStatus}
           inputValue={inputString}
           inputPlaceholder={''}
