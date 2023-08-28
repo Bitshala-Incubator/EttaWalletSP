@@ -7,18 +7,18 @@ import KeyboardAwareScrollView from '../components/keyboard/KeyboardInScrollView
 import KeyboardSpacer from '../components/keyboard/KeyboardSpacer';
 import CancelButton from '../navigation/components/CancelButton';
 import InputAnything, { InputStatus } from '../components/InputAnything';
-import { formatLightningId, isValidLightningId, processInputData } from '../utils/lightning/decode';
+import { sanitizeAddress, isValidLightningId, processInputData } from '../utils/lightning/decode';
 import { showErrorBanner } from '../utils/alerts';
 import { navigateHome } from '../navigation/NavigationService';
 
-// type RouteProps = NativeStackScreenProps<StackParamList, Screens.EnterAnythingScreen>;
+const navigationOptions = {
+  headerTitle: () => <HeaderTitleWithSubtitle title="Enter SP Address" />,
+  headerRight: () => <CancelButton onCancel={() => navigateHome()} />,
+};
 
 const EnterAnythingScreen = ({ navigation }) => {
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: () => <HeaderTitleWithSubtitle title="Enter SP Address" />,
-      headerRight: () => <CancelButton onCancel={() => navigateHome()} />,
-    });
+    navigation.setOptions(navigationOptions);
   }, [navigation]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [inputString, setInputString] = useState('');
@@ -27,8 +27,8 @@ const EnterAnythingScreen = ({ navigation }) => {
     return isValidLightningId(clipboardContent);
   };
 
-  const setLightningIdentifier = (input: string) => {
-    const formattedId = formatLightningId(input);
+  const setIdentifier = (input: string) => {
+    const formattedId = sanitizeAddress(input);
 
     setInputString(formattedId);
   };
@@ -75,7 +75,7 @@ const EnterAnythingScreen = ({ navigation }) => {
           inputPlaceholder={''}
           multiline={true}
           autoFocus={true}
-          onInputChange={setLightningIdentifier}
+          onInputChange={setIdentifier}
           shouldShowClipboard={shouldShowClipboard}
         />
       </KeyboardAwareScrollView>

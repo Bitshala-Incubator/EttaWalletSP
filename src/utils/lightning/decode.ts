@@ -14,7 +14,7 @@ import { Screens } from '../../navigation/Screens';
 import { showErrorBanner, showWarningBanner } from '../alerts';
 import { cueErrorHaptic } from '../accessibility/haptics';
 import { LNURLPayParams, LNURLWithdrawParams } from 'js-lnurl';
-import { getLNURLParams } from '../lnurl/decode';
+import { decodeSilentPaymentAddress } from 'silent-pay/src';
 import { sleep } from '../helpers';
 
 export const validateInternetIdentifier = (internetIdentifier) => {
@@ -23,8 +23,6 @@ export const validateInternetIdentifier = (internetIdentifier) => {
 };
 
 const LIGHTNING_SCHEME = 'lightning';
-const BOLT11_SCHEME_MAINNET = 'lnbc';
-const BOLT11_SCHEME_TESTNET = 'lntb';
 const LNURL_SCHEME = 'lnurl';
 
 /**
@@ -142,128 +140,6 @@ export const processTransactionData = async ({
  * @param {TAvailableNetworks} [selectedNetwork]
  * @returns {string}
  */
-export const decodeLNData = async (
-  data: string,
-  selectedNetwork?: TAvailableNetworks
-): Promise<Result<IDecodedData[]>> => {
-  if (!selectedNetwork) {
-    selectedNetwork = getSelectedNetwork();
-  }
-
-  let foundNetworksInQR: IDecodedData[] = [];
-  let lightningInvoice = '';
-  let lightningAddress = '';
-  let error = '';
-
-  //Lightning URI or plain lightning payment request
-  if (isValidLightningId(data)) {
-    //If it's a lightning URI, remove "lightning:", everything to the left of it.
-    let invoice = data
-      .replace(/^.*?(lightning:)/i, '')
-      .trim()
-      .toLowerCase();
-    //Attempt to handle any lnurl request.
-    if (invoice.startsWith(LNURL_SCHEME)) {
-      const res = await getLNURLParams(invoice);
-      if (res.isOk()) {
-        const params = res.value;
-        let tag = '';
-        if ('tag' in params) {
-          tag = params.tag;
-        }
-
-        let dataType: ELightningDataType | undefined;
-
-        switch (tag) {
-          case 'login': {
-            dataType = ELightningDataType.lnurlAuth;
-            break;
-          }
-          case 'withdrawRequest': {
-            dataType = ELightningDataType.lnurlWithdraw;
-            break;
-          }
-          case 'payRequest': {
-            dataType = ELightningDataType.lnurlPay;
-            break;
-          }
-        }
-
-        if (dataType) {
-          foundNetworksInQR.push({
-            dataType,
-            network: selectedNetwork,
-            lnUrlParams: params,
-          });
-        }
-      } else {
-        error += `${res.error.message} `;
-      }
-    } else if (validateInternetIdentifier(invoice)) {
-      lightningAddress = invoice;
-    } else {
-      //Assume invoice
-      //Ignore params if there are any, all details can be derived from invoice
-      if (invoice.indexOf('?') > -1) {
-        invoice = invoice.split('?')[0];
-      }
-      lightningInvoice = invoice;
-    }
-  }
-
-  if (lightningInvoice) {
-    const decodedInvoice = await decodeLightningInvoice({
-      paymentRequest: lightningInvoice,
-    });
-    if (decodedInvoice.isOk()) {
-      foundNetworksInQR.push({
-        dataType: ELightningDataType.paymentRequest,
-        paymentRequest: data,
-        network: selectedNetwork,
-        sats: decodedInvoice.value?.amount_satoshis ?? 0,
-        message: decodedInvoice.value?.description ?? '',
-      });
-    } else {
-      error += `${decodedInvoice.error.message} `;
-    }
-  }
-
-  if (lightningAddress) {
-    await sleep(1000);
-    const [username, domain] = lightningAddress.split('@');
-    const url = `https://${domain}/.well-known/lnurlp/${username.toLowerCase()}`;
-    const paramsRes = await getLNURLParams(url);
-    if (paramsRes.isOk()) {
-      foundNetworksInQR.push({
-        dataType: ELightningDataType.lnurlPay,
-        network: selectedNetwork,
-        lnUrlParams: paramsRes.value,
-      });
-    } else {
-      error += `${paramsRes.error.message} `;
-    }
-  }
-
-  if (!foundNetworksInQR.length) {
-    // Attempt to determine if it's a node id to connect with and add.
-    const dataSplit = data.split(':');
-    if (dataSplit.length === 2 && dataSplit[0].includes('@')) {
-      foundNetworksInQR.push({
-        dataType: ELightningDataType.nodeId,
-        url: data,
-        network: selectedNetwork,
-      });
-    }
-  }
-
-  if (foundNetworksInQR.length) {
-    return ok(foundNetworksInQR);
-  }
-  if (error) {
-    return err(error);
-  }
-  return err('Unable to read the provided data.');
-};
 
 /**
  * This method processes, decodes and handles all scanned/pasted information provided by the user.
@@ -284,7 +160,7 @@ export const processInputData = async ({
     if (!selectedNetwork) {
       selectedNetwork = getSelectedNetwork();
     }
-    const decodeRes = await decodeLNData(data, selectedNetwork);
+    const decodeRes = decodeSilentPaymentAddress(data);
     console.log('decodeRes: ', JSON.stringify(decodeRes));
     if (decodeRes.isErr()) {
       const message = 'EttaWallet could not decode that';
@@ -508,20 +384,14 @@ export const parseInputAddress = async (identifier: string) => {
   }
 };
 
-export const formatLightningId = (identifier: string) => {
+export const sanitizeAddress = (identifier: string) => {
   return identifier.replace(/\s+/gm, ' ');
 };
 
 export const isValidLightningId = (identifier: string) => {
   let isValid = false;
-  const formattedId = formatLightningId(identifier);
-  if (
-    formattedId.toLowerCase().indexOf('lightning:') > -1 ||
-    formattedId.toLowerCase().startsWith(BOLT11_SCHEME_TESTNET) ||
-    formattedId.toLowerCase().startsWith(BOLT11_SCHEME_MAINNET) ||
-    formattedId.toLowerCase().startsWith(LNURL_SCHEME) ||
-    validateInternetIdentifier(formattedId)
-  ) {
+  const formattedId = sanitizeAddress(identifier);
+  if (formattedId.length === 116) {
     isValid = true;
   }
 
